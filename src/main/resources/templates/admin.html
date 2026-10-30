@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHOP_E Admin Dashboard — Quản trị Đơn hàng & Tồn kho</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col">
+
+<!-- Top Admin Header -->
+<header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-extrabold text-xl flex items-center justify-center shadow">
+                ⚡
+            </div>
+            <div>
+                <h1 class="text-base font-extrabold tracking-tight">SHOP_E ADMIN DASHBOARD</h1>
+                <p class="text-[11px] text-slate-400">Quản lý Trạng thái Đơn hàng (PENDING → PAID → SHIPPED / CANCELLED) & Tồn kho</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <select id="adminApiStageSelect" onchange="changeAdminApiBase(this.value)"
+                    class="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-xl px-3 py-2">
+                <option value="/api/v1">Backend: /api/v1 (Spring Boot)</option>
+                <option value="http://localhost:4010/api/v1">Mock Server: :4010/api/v1</option>
+            </select>
+            <a href="/api/v1/openapi.yaml" target="_blank"
+               class="hidden sm:inline-flex px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-indigo-300 border border-slate-700">
+                📄 OpenAPI 3.0 Spec
+            </a>
+            <a href="/"
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow">
+                <span>← Về Cửa hàng (Storefront)</span>
+            </a>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+
+    <div id="adminToastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 max-w-md"></div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <div class="text-xs font-semibold text-slate-400 uppercase">Tổng số Đơn hàng</div>
+            <div class="text-2xl font-extrabold text-slate-900 mt-1" id="kpiTotalOrders">0</div>
+            <div class="text-xs text-slate-500 mt-1">Tất cả trạng thái trong CSDL</div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-amber-200 shadow-sm">
+            <div class="text-xs font-semibold text-amber-600 uppercase">Đơn chờ xử lý (PENDING)</div>
+            <div class="text-2xl font-extrabold text-amber-600 mt-1" id="kpiPendingOrders">0</div>
+            <div class="text-xs text-slate-500 mt-1">Cần xác nhận thanh toán hoặc hủy</div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-emerald-200 shadow-sm">
+            <div class="text-xs font-semibold text-emerald-600 uppercase">Doanh thu (PAID & SHIPPED)</div>
+            <div class="text-2xl font-extrabold text-emerald-600 mt-1" id="kpiRevenue">0 ₫</div>
+            <div class="text-xs text-slate-500 mt-1">Không tính đơn đã hủy</div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-indigo-200 shadow-sm">
+            <div class="text-xs font-semibold text-indigo-600 uppercase">Tổng Tồn kho Sản phẩm</div>
+            <div class="text-2xl font-extrabold text-indigo-600 mt-1" id="kpiTotalStock">0</div>
+            <div class="text-xs text-slate-500 mt-1">Cập nhật tự động khi Đặt / Hủy đơn</div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-white rounded-2xl p-2 border border-slate-200 shadow-sm inline-flex flex-wrap gap-2">
+        <button onclick="switchAdminTab('orders')" id="adminTabBtn-orders"
+                class="px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm">
+            📦 Quản lý Đơn hàng & Trạng thái
+        </button>
+        <button onclick="switchAdminTab('products')" id="adminTabBtn-products"
+                class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">
+            🏷️ Quản lý Sản phẩm & Tồn kho
+        </button>
+        <button onclick="switchAdminTab('customers')" id="adminTabBtn-customers"
+                class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">
+            👥 Danh sách Khách hàng & Danh mục
+        </button>
+    </div>
+
+    <!-- TAB 1: ORDERS MANAGEMENT -->
+    <section id="adminSection-orders" class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-extrabold text-slate-900">Danh sách Đơn hàng</h2>
+                <p class="text-xs text-slate-500">Quy tắc chuyển trạng thái: <code class="text-indigo-600 font-semibold">PENDING → PAID → SHIPPED</code> hoặc <code class="text-rose-600 font-semibold">CANCELLED (Hoàn lại tồn kho)</code></p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="filterOrdersByStatus('')" id="statusFilter-ALL"
+                        class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white">Tất cả</button>
+                <button onclick="filterOrdersByStatus('PENDING')" id="statusFilter-PENDING"
+                        class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">PENDING</button>
+                <button onclick="filterOrdersByStatus('PAID')" id="statusFilter-PAID"
+                        class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">PAID</button>
+                <button onclick="filterOrdersByStatus('SHIPPED')" id="statusFilter-SHIPPED"
+                        class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">SHIPPED</button>
+                <button onclick="filterOrdersByStatus('CANCELLED')" id="statusFilter-CANCELLED"
+                        class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">CANCELLED</button>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                <tr class="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                    <th class="py-3.5 px-4">Mã Đơn</th>
+                    <th class="py-3.5 px-4">Khách hàng</th>
+                    <th class="py-3.5 px-4">Chi tiết Sản phẩm</th>
+                    <th class="py-3.5 px-4">Tổng tiền</th>
+                    <th class="py-3.5 px-4">Trạng thái</th>
+                    <th class="py-3.5 px-4 text-right">Thao tác Chuyển Trạng thái</th>
+                </tr>
+                </thead>
+                <tbody id="adminOrdersTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- TAB 2: PRODUCTS & STOCK MANAGEMENT -->
+    <section id="adminSection-products" class="hidden space-y-6">
+        <!-- Create New Product Card -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <h3 class="text-base font-extrabold text-slate-900">+ Thêm Sản phẩm Mới (<code class="text-indigo-600 text-xs">POST /api/v1/products</code>)</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+                <input id="newProdSku" type="text" placeholder="Mã SKU (VD: SKU-NEW-01)"
+                       class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs">
+                <input id="newProdName" type="text" placeholder="Tên sản phẩm *"
+                       class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs lg:col-span-2">
+                <input id="newProdPrice" type="number" placeholder="Giá bán (VNĐ) *"
+                       class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs">
+                <input id="newProdStock" type="number" placeholder="Tồn kho *"
+                       class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs">
+                <select id="newProdCategory" class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs"></select>
+                <input id="newProdImage" type="text" placeholder="URL Hình ảnh (tùy chọn)"
+                       class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs lg:col-span-2">
+                <input id="newProdDesc" type="text" placeholder="Mô tả chi tiết sản phẩm"
+                       class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs lg:col-span-3">
+                <button onclick="createNewProduct()"
+                        class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow">
+                    Tạo Sản phẩm (201)
+                </button>
+            </div>
+        </div>
+
+        <!-- Product Stock Table -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-extrabold text-slate-900">Quản lý Tồn kho & Giá bán Sản phẩm</h2>
+                    <p class="text-xs text-slate-500">Điều chỉnh trực tiếp <code class="text-indigo-600">stockQuantity</code> qua <code class="text-indigo-600">PATCH /api/v1/products/{id}</code></p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                    <tr class="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                        <th class="py-3.5 px-4">Sản phẩm</th>
+                        <th class="py-3.5 px-4">Danh mục</th>
+                        <th class="py-3.5 px-4">Giá bán (VNĐ)</th>
+                        <th class="py-3.5 px-4">Số lượng Tồn kho</th>
+                        <th class="py-3.5 px-4 text-right">Hành động</th>
+                    </tr>
+                    </thead>
+                    <tbody id="adminProductsTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- TAB 3: CUSTOMERS & CATEGORIES -->
+    <section id="adminSection-customers" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Categories -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <h3 class="text-base font-extrabold text-slate-900">Danh mục Hàng hóa</h3>
+            <div class="flex gap-2">
+                <input id="newCatName" type="text" placeholder="Tên danh mục mới..."
+                       class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                <button onclick="createNewCategory()"
+                        class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">+ Thêm</button>
+            </div>
+            <div id="adminCategoriesList" class="space-y-2"></div>
+        </div>
+
+        <!-- Customers -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm lg:col-span-2 space-y-4">
+            <h3 class="text-base font-extrabold text-slate-900">Danh sách Khách hàng (<code class="text-indigo-600 text-xs">GET /api/v1/customers</code>)</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                    <tr class="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                        <th class="py-3 px-3">ID</th>
+                        <th class="py-3 px-3">Họ và tên</th>
+                        <th class="py-3 px-3">Email</th>
+                        <th class="py-3 px-3">Số điện thoại</th>
+                        <th class="py-3 px-3">Địa chỉ</th>
+                    </tr>
+                    </thead>
+                    <tbody id="adminCustomersTableBody" class="divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<script>
+    let API_BASE = localStorage.getItem('shope_api_base') || '/api/v1';
+    let currentOrderStatusFilter = '';
+
+    const formatVND = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('adminApiStageSelect').value = API_BASE;
+        refreshAllAdminData();
+    });
+
+    function changeAdminApiBase(val) {
+        API_BASE = val;
+        localStorage.setItem('shope_api_base', val);
+        showAdminToast(`Đã chuyển API sang: ${val}`, 'info');
+        refreshAllAdminData();
+    }
+
+    function showAdminToast(message, type = 'success') {
+        const container = document.getElementById('adminToastContainer');
+        const colors = {
+            success: 'bg-emerald-600 text-white',
+            error: 'bg-rose-600 text-white',
+            info: 'bg-indigo-600 text-white'
+        };
+        const el = document.createElement('div');
+        el.className = `${colors[type] || colors.info} px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold flex items-center justify-between gap-3`;
+        el.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()">✕</button>`;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 4000);
+    }
+
+    function switchAdminTab(tab) {
+        ['orders', 'products', 'customers'].forEach(t => {
+            document.getElementById(`adminSection-${t}`).classList.toggle('hidden', t !== tab);
+            document.getElementById(`adminTabBtn-${t}`).className = t === tab
+                ? 'px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm'
+                : 'px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100';
+        });
+    }
+
+    async function refreshAllAdminData() {
+        await Promise.all([loadAdminOrders(), loadAdminProducts(), loadAdminCategoriesAndCustomers()]);
+    }
+
+    function filterOrdersByStatus(status) {
+        currentOrderStatusFilter = status;
+        loadAdminOrders();
+    }
+
+    async function loadAdminOrders() {
+        const url = currentOrderStatusFilter
+            ? `${API_BASE}/orders?status=${currentOrderStatusFilter}&size=50`
+            : `${API_BASE}/orders?size=50`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const orders = data.content || [];
+
+        // Update KPIs if unfiltered
+        if (!currentOrderStatusFilter) {
+            document.getElementById('kpiTotalOrders').textContent = orders.length;
+            document.getElementById('kpiPendingOrders').textContent = orders.filter(o => o.status === 'PENDING').length;
+            const revenue = orders
+                .filter(o => o.status === 'PAID' || o.status === 'SHIPPED')
+                .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+            document.getElementById('kpiRevenue').textContent = formatVND(revenue);
+        }
+
+        const badgeClass = {
+            PENDING: 'bg-amber-100 text-amber-800 border-amber-200',
+            PAID: 'bg-sky-100 text-sky-800 border-sky-200',
+            SHIPPED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            CANCELLED: 'bg-rose-100 text-rose-800 border-rose-200'
+        };
+
+        const tbody = document.getElementById('adminOrdersTableBody');
+        if (!orders.length) {
+            tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-slate-400">Không có đơn hàng nào ở trạng thái này.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = orders.map(o => {
+            let actions = '';
+            if (o.status === 'PENDING') {
+                actions = `
+                    <button onclick="updateOrderStatus(${o.id}, 'PAID')"
+                            class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold">
+                        ✓ Xác nhận PAID
+                    </button>
+                    <button onclick="updateOrderStatus(${o.id}, 'CANCELLED')"
+                            class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold">
+                        ✕ Hủy & Hoàn kho
+                    </button>
+                `;
+            } else if (o.status === 'PAID') {
+                actions = `
+                    <button onclick="updateOrderStatus(${o.id}, 'SHIPPED')"
+                            class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                        🚚 Giao hàng (SHIPPED)
+                    </button>
+                    <button onclick="updateOrderStatus(${o.id}, 'CANCELLED')"
+                            class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold">
+                        ✕ Hủy & Hoàn kho
+                    </button>
+                `;
+            } else {
+                actions = `<span class="text-slate-400 italic">Đã hoàn tất vòng đời (${o.status})</span>`;
+            }
+
+            return `
+                <tr class="hover:bg-slate-50/80">
+                    <td class="py-3.5 px-4 font-mono font-bold text-indigo-600">${o.orderCode}</td>
+                    <td class="py-3.5 px-4">
+                        <div class="font-bold text-slate-900">${o.customerName || ''}</div>
+                        <div class="text-[11px] text-slate-500">${o.customerPhone || ''} • ${o.shippingAddress || ''}</div>
+                    </td>
+                    <td class="py-3.5 px-4 space-y-1">
+                        ${(o.items || []).map(i => `
+                            <div>• ${i.productName} <strong class="text-indigo-600">x${i.quantity}</strong> (${formatVND(i.subtotal)})</div>
+                        `).join('')}
+                    </td>
+                    <td class="py-3.5 px-4 font-extrabold text-slate-900">${formatVND(o.totalAmount)}</td>
+                    <td class="py-3.5 px-4">
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold border ${badgeClass[o.status] || ''}">
+                            ${o.status}
+                        </span>
+                    </td>
+                    <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                        ${actions}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function updateOrderStatus(orderId, newStatus) {
+        const res = await fetch(`${API_BASE}/orders/${orderId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showAdminToast(`${data.code}: ${data.message}`, 'error');
+            return;
+        }
+        const msg = newStatus === 'CANCELLED'
+            ? `Đã hủy đơn ${data.orderCode} và hoàn lại số lượng tồn kho sản phẩm!`
+            : `Đã chuyển trạng thái đơn ${data.orderCode} sang ${newStatus}`;
+        showAdminToast(msg, 'success');
+        await refreshAllAdminData();
+    }
+
+    async function loadAdminProducts() {
+        const res = await fetch(`${API_BASE}/products?page=0&size=50`);
+        const data = await res.json();
+        const products = data.content || [];
+
+        const totalStock = products.reduce((sum, p) => sum + (p.stockQuantity || 0), 0);
+        document.getElementById('kpiTotalStock').textContent = totalStock;
+
+        const tbody = document.getElementById('adminProductsTableBody');
+        tbody.innerHTML = products.map(p => `
+            <tr class="hover:bg-slate-50">
+                <td class="py-3 px-4 flex items-center gap-3">
+                    <img src="${p.imageUrl}" alt="" class="w-11 h-11 rounded-xl object-cover bg-slate-100">
+                    <div>
+                        <div class="font-bold text-slate-900">${p.name}</div>
+                        <div class="font-mono text-[11px] text-slate-400">${p.sku}</div>
+                    </div>
+                </td>
+                <td class="py-3 px-4 font-semibold text-slate-600">${p.categoryName || ''}</td>
+                <td class="py-3 px-4">
+                    <input id="priceInput-${p.id}" type="number" value="${p.price}"
+                           class="w-32 px-2.5 py-1.5 rounded-lg border border-slate-200 font-bold text-slate-800">
+                </td>
+                <td class="py-3 px-4">
+                    <input id="stockInput-${p.id}" type="number" value="${p.stockQuantity}" min="0"
+                           class="w-24 px-2.5 py-1.5 rounded-lg border border-slate-200 font-extrabold text-indigo-600">
+                </td>
+                <td class="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
+                    <button onclick="saveProductPatch(${p.id})"
+                            class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+                        Lưu Tồn kho
+                    </button>
+                    <button onclick="deleteProduct(${p.id})"
+                            class="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold">
+                        Xóa (204)
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function saveProductPatch(productId) {
+        const stockQuantity = Number(document.getElementById(`stockInput-${productId}`).value);
+        const price = Number(document.getElementById(`priceInput-${productId}`).value);
+        const res = await fetch(`${API_BASE}/products/${productId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stockQuantity, price })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showAdminToast(`${data.code}: ${data.message}`, 'error');
+            return;
+        }
+        showAdminToast(`Đã cập nhật tồn kho "${data.name}" = ${data.stockQuantity}`);
+        await loadAdminProducts();
+    }
+
+    async function createNewProduct() {
+        const payload = {
+            sku: document.getElementById('newProdSku').value.trim(),
+            name: document.getElementById('newProdName').value.trim(),
+            price: Number(document.getElementById('newProdPrice').value),
+            stockQuantity: Number(document.getElementById('newProdStock').value),
+            categoryId: Number(document.getElementById('newProdCategory').value),
+            imageUrl: document.getElementById('newProdImage').value.trim(),
+            description: document.getElementById('newProdDesc').value.trim()
+        };
+        const res = await fetch(`${API_BASE}/products`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showAdminToast(`${data.code}: ${(data.details || [data.message]).join(', ')}`, 'error');
+            return;
+        }
+        showAdminToast(`Đã tạo sản phẩm mới: ${data.name} (201 Created)`);
+        await loadAdminProducts();
+    }
+
+    async function deleteProduct(productId) {
+        const res = await fetch(`${API_BASE}/products/${productId}`, { method: 'DELETE' });
+        if (res.status === 204) {
+            showAdminToast('Đã xóa sản phẩm thành công (204 No Content)');
+            await loadAdminProducts();
+        } else {
+            showAdminToast('Không thể xóa sản phẩm', 'error');
+        }
+    }
+
+    async function loadAdminCategoriesAndCustomers() {
+        const [catRes, cusRes] = await Promise.all([
+            fetch(`${API_BASE}/categories`),
+            fetch(`${API_BASE}/customers`)
+        ]);
+        const cats = await catRes.json();
+        const customers = await cusRes.json();
+
+        document.getElementById('newProdCategory').innerHTML = cats.map(c =>
+            `<option value="${c.id}">${c.name}</option>`
+        ).join('');
+
+        document.getElementById('adminCategoriesList').innerHTML = cats.map(c => `
+            <div class="p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+                <div>
+                    <span class="font-bold text-slate-800">${c.name}</span>
+                    <span class="text-slate-400 ml-1">(${c.productCount || 0} sp)</span>
+                </div>
+                <span class="font-mono text-[10px] text-slate-400">${c.slug}</span>
+            </div>
+        `).join('');
+
+        document.getElementById('adminCustomersTableBody').innerHTML = customers.map(c => `
+            <tr class="hover:bg-slate-50">
+                <td class="py-2.5 px-3 font-mono text-slate-400">#${c.id}</td>
+                <td class="py-2.5 px-3 font-bold text-slate-900">${c.fullName}</td>
+                <td class="py-2.5 px-3 text-indigo-600">${c.email}</td>
+                <td class="py-2.5 px-3">${c.phone}</td>
+                <td class="py-2.5 px-3 text-slate-500">${c.address || ''}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function createNewCategory() {
+        const name = document.getElementById('newCatName').value.trim();
+        if (!name) return;
+        const res = await fetch(`${API_BASE}/categories`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description: name })
+        });
+        if (res.ok) {
+            document.getElementById('newCatName').value = '';
+            showAdminToast(`Đã tạo danh mục: ${name}`);
+            await loadAdminCategoriesAndCustomers();
+        }
+    }
+</script>
+</body>
+</html>
+

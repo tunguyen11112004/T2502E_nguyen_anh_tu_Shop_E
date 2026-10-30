@@ -1,0 +1,846 @@
+openapi: 3.0.3
+info:
+  title: SHOP E-COMMERCE RESTful API
+  description: |
+    Đặc tả OpenAPI 3.0 (Single Source of Truth) cho hệ thống Thương mại Điện tử SHOP_E.
+    - Sử dụng danh từ số nhiều: `/api/v1/categories`, `/api/v1/products`, `/api/v1/customers`, `/api/v1/orders`
+    - Cấu trúc lỗi JSON thống nhất: `{"code": "...", "message": "...", "details": [...]}`
+  version: 1.0.0
+  contact:
+    name: SHOP_E Development Team
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Spring Boot Backend Server (Giai đoạn 2)
+  - url: http://localhost:4010/api/v1
+    description: OpenAPI Mock Server (Giai đoạn 1)
+
+tags:
+  - name: Categories
+    description: Quản lý danh mục hàng hóa
+  - name: Products
+    description: Quản lý sản phẩm, tìm kiếm, lọc theo giá và quản lý tồn kho
+  - name: Customers
+    description: Đăng ký, đăng nhập, quản lý hồ sơ khách hàng và lịch sử đơn hàng
+  - name: Orders
+    description: Đặt hàng (Checkout @Transactional) và quản lý vòng đời trạng thái đơn hàng
+
+paths:
+  /categories:
+    get:
+      tags: [Categories]
+      summary: Lấy danh sách danh mục hàng hóa
+      operationId: getCategories
+      responses:
+        '200':
+          description: Danh sách danh mục
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryResponse'
+    post:
+      tags: [Categories]
+      summary: Tạo danh mục mới
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+      responses:
+        '201':
+          description: Tạo danh mục thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /categories/{id}:
+    get:
+      tags: [Categories]
+      summary: Lấy chi tiết danh mục
+      operationId: getCategoryById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Chi tiết danh mục
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags: [Categories]
+      summary: Cập nhật danh mục
+      operationId: updateCategory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags: [Categories]
+      summary: Xóa danh mục
+      operationId: deleteCategory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Xóa thành công (No Content)
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /products:
+    get:
+      tags: [Products]
+      summary: Tìm kiếm, lọc theo danh mục/khoảng giá và phân trang sản phẩm
+      operationId: getProducts
+      parameters:
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 8
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            default: createdAt
+        - name: sortDir
+          in: query
+          schema:
+            type: string
+            default: desc
+      responses:
+        '200':
+          description: Trang danh sách sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPageResponse'
+    post:
+      tags: [Products]
+      summary: Tạo sản phẩm mới
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+      responses:
+        '201':
+          description: Tạo sản phẩm thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /products/{id}:
+    get:
+      tags: [Products]
+      summary: Xem chi tiết sản phẩm
+      operationId: getProductById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Thông tin chi tiết sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags: [Products]
+      summary: Cập nhật toàn bộ thông tin sản phẩm
+      operationId: updateProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+      responses:
+        '200':
+          description: Cập nhật sản phẩm thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      tags: [Products]
+      summary: Cập nhật nhanh tồn kho hoặc giá sản phẩm
+      operationId: patchProductStock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductStockPatchRequest'
+      responses:
+        '200':
+          description: Đã cập nhật tồn kho sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags: [Products]
+      summary: Xóa sản phẩm
+      operationId: deleteProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Xóa thành công (No Content)
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /customers:
+    get:
+      tags: [Customers]
+      summary: Lấy danh sách khách hàng
+      operationId: getCustomers
+      responses:
+        '200':
+          description: Danh sách khách hàng
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerResponse'
+    post:
+      tags: [Customers]
+      summary: Đăng ký tài khoản khách hàng mới
+      operationId: registerCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCreateRequest'
+      responses:
+        '201':
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+
+  /customers/sessions:
+    post:
+      tags: [Customers]
+      summary: Đăng nhập tài khoản khách hàng
+      operationId: createCustomerSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerLoginRequest'
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+
+  /customers/{id}:
+    get:
+      tags: [Customers]
+      summary: Xem thông tin cá nhân khách hàng
+      operationId: getCustomerById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Thông tin khách hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags: [Customers]
+      summary: Cập nhật thông tin cá nhân khách hàng
+      operationId: updateCustomer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerUpdateRequest'
+      responses:
+        '200':
+          description: Cập nhật hồ sơ thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /customers/{id}/orders:
+    get:
+      tags: [Customers]
+      summary: Xem lịch sử đơn hàng của khách hàng
+      operationId: getCustomerOrders
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Danh sách đơn hàng của khách hàng
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /orders:
+    get:
+      tags: [Orders]
+      summary: Lấy danh sách đơn hàng (hỗ trợ lọc theo status, customerId và phân trang)
+      operationId: getOrders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, PAID, SHIPPED, CANCELLED]
+        - name: customerId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Trang danh sách đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPageResponse'
+    post:
+      tags: [Orders]
+      summary: Đặt hàng mới (Checkout - kiểm tra tồn kho, tính tổng tiền, tạo đơn PENDING và trừ tồn kho)
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+      responses:
+        '201':
+          description: Tạo đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Xem chi tiết đơn hàng
+      operationId: getOrderById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Chi tiết đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      tags: [Orders]
+      summary: Chuyển đổi trạng thái đơn hàng (PENDING -> PAID -> SHIPPED hoặc CANCELLED hoàn tồn kho)
+      operationId: updateOrderStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusUpdateRequest'
+      responses:
+        '200':
+          description: Cập nhật trạng thái đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+
+components:
+  responses:
+    BadRequestError:
+      description: Dữ liệu đầu vào không hợp lệ (400 Bad Request)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: Không tìm thấy tài nguyên (404 Not Found)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntityError:
+      description: Vi phạm quy tắc nghiệp vụ (422 Unprocessable Entity - ví dụ hết tồn kho ERR_STOCK_EMPTY)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message, details]
+      properties:
+        code:
+          type: string
+          example: ERR_STOCK_EMPTY
+        message:
+          type: string
+          example: Sản phẩm đã hết hàng
+        details:
+          type: array
+          items:
+            type: string
+          example: ["Sản phẩm 'MacBook Pro M4' chỉ còn 0 sản phẩm trong kho"]
+
+    CategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Laptop & Máy tính
+        description:
+          type: string
+          example: Máy tính xách tay, PC và thiết bị văn phòng
+        icon:
+          type: string
+          example: laptop
+
+    CategoryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        productCount:
+          type: integer
+
+    ProductRequest:
+      type: object
+      required: [name, price, stockQuantity, categoryId]
+      properties:
+        sku:
+          type: string
+          example: SKU-LAP-001
+        name:
+          type: string
+          example: MacBook Air M3 15 inch
+        description:
+          type: string
+          example: Chip Apple M3, RAM 16GB, SSD 512GB, màn hình Liquid Retina
+        price:
+          type: number
+          example: 32990000
+        imageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800
+        stockQuantity:
+          type: integer
+          example: 15
+        categoryId:
+          type: integer
+          format: int64
+          example: 1
+
+    ProductStockPatchRequest:
+      type: object
+      properties:
+        stockQuantity:
+          type: integer
+          example: 25
+        price:
+          type: number
+          example: 31990000
+
+    ProductResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        imageUrl:
+          type: string
+        stockQuantity:
+          type: integer
+        categoryId:
+          type: integer
+          format: int64
+        categoryName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ProductPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductResponse'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    CustomerCreateRequest:
+      type: object
+      required: [fullName, email, phone]
+      properties:
+        fullName:
+          type: string
+          example: Nguyễn Văn An
+        email:
+          type: string
+          format: email
+          example: an.nguyen@example.com
+        phone:
+          type: string
+          example: "0901234567"
+        password:
+          type: string
+          example: "123456"
+        address:
+          type: string
+          example: "123 Lê Lợi, Quận 1, TP.HCM"
+
+    CustomerUpdateRequest:
+      type: object
+      required: [fullName, email, phone]
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+
+    CustomerLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    CustomerResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    OrderItemRequest:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          minimum: 1
+
+    OrderCreateRequest:
+      type: object
+      required: [customerId, items]
+      properties:
+        customerId:
+          type: integer
+          format: int64
+        shippingAddress:
+          type: string
+        note:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItemRequest'
+
+    OrderStatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [PENDING, PAID, SHIPPED, CANCELLED]
+
+    OrderItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        productId:
+          type: integer
+          format: int64
+        productName:
+          type: string
+        unitPrice:
+          type: number
+        quantity:
+          type: integer
+        subtotal:
+          type: number
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderCode:
+          type: string
+        customerId:
+          type: integer
+          format: int64
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, PAID, SHIPPED, CANCELLED]
+        totalAmount:
+          type: number
+        shippingAddress:
+          type: string
+        note:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemResponse'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    OrderPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderResponse'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+

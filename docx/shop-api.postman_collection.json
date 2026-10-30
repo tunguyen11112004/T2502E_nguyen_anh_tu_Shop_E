@@ -1,0 +1,175 @@
+{
+  "info": {
+    "name": "SHOP E-COMMERCE API Contract Tests (OpenAPI 3.0)",
+    "_postman_id": "f8a0c100-1000-4000-8000-shop00000001",
+    "description": "Bộ kiểm thử hợp đồng API (Contract Testing) cho hệ thống SHOP_E theo đặc tả OpenAPI 3.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Categories - GET /categories",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response is an array of categories', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "    pm.expect(jsonData.length).to.be.above(0);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/categories",
+          "host": ["{{baseUrl}}"],
+          "path": ["categories"]
+        }
+      }
+    },
+    {
+      "name": "2. Products - GET /products (Pagination & Price Filter)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () { pm.response.to.have.status(200); });",
+              "pm.test('Contains pagination metadata & product items', function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data).to.have.property('content');",
+              "    pm.expect(data).to.have.property('totalElements');",
+              "    pm.expect(data.content[0]).to.have.property('stockQuantity');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/products?page=0&size=8",
+          "host": ["{{baseUrl}}"],
+          "path": ["products"],
+          "query": [
+            { "key": "page", "value": "0" },
+            { "key": "size", "value": "8" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Customers - POST /customers (Register Valid Customer)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+              "pm.test('Customer has id, email and phone', function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data).to.have.property('id');",
+              "    pm.expect(data.email).to.include('@');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Trần Thị Bình\",\n  \"email\": \"binh.tran.contract@example.com\",\n  \"phone\": \"0912345678\",\n  \"password\": \"123456\",\n  \"address\": \"456 Điện Biên Phủ, Quận 3, TP.HCM\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/customers",
+          "host": ["{{baseUrl}}"],
+          "path": ["customers"]
+        }
+      }
+    },
+    {
+      "name": "4. Orders - POST /orders (Checkout Success - 201 Created)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+              "pm.test('Order status is PENDING and totalAmount > 0', function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data.status).to.eql('PENDING');",
+              "    pm.expect(data.totalAmount).to.be.above(0);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerId\": 1,\n  \"shippingAddress\": \"123 Nguyễn Huệ, Quận 1, TP.HCM\",\n  \"note\": \"Kiểm thử Contract Checkout\",\n  \"items\": [\n    { \"productId\": 1, \"quantity\": 1 }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["orders"]
+        }
+      }
+    },
+    {
+      "name": "5. Orders - POST /orders (Out of Stock - 422 ERR_STOCK_EMPTY)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 422 Unprocessable Entity', function () { pm.response.to.have.status(422); });",
+              "pm.test('Unified JSON error format with ERR_STOCK_EMPTY', function () {",
+              "    const err = pm.response.json();",
+              "    pm.expect(err.code).to.eql('ERR_STOCK_EMPTY');",
+              "    pm.expect(err).to.have.property('message');",
+              "    pm.expect(err.details).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerId\": 1,\n  \"shippingAddress\": \"123 Nguyễn Huệ, Quận 1, TP.HCM\",\n  \"items\": [\n    { \"productId\": 1, \"quantity\": 99999 }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["orders"]
+        }
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,47 @@
+ĐỒ ÁN MỞ RỘNG FULLSTACK: SPRING BOOT & API-FIRST
+ĐỀ BÀI BÀI TẬP LỚN FULLSTACK: SHOP E-COMMERCE
+Phát triển Toàn diện từ Phân tích BA, Quy trình API-First, Kiểm thử Contract đến Tích hợp BE (Spring Boot) & FE
+
+Đối tượng: Sinh viên Lập trình Java / Spring Boot / Fullstack
+Thời lượng: Bài tập lớn / Đồ án môn học
+Công nghệ BE: Java 21, Spring Boot, Spring Data JPA, MySQL / H2
+Công nghệ FE & API: OpenAPI 3.0, Swagger, HTML5/JS/Thymeleaf, Tailwind CSS
+
+TỔNG QUAN YÊU CẦU ĐỒ ÁN
+Yêu cầu bắt buộc đạt được:
+1. Hoàn thành Tài liệu BA: Xác định đầy đủ Luồng nghiệp vụ (Business Workflow) và User Stories cho 3 module (Khách hàng, Sản phẩm, Đơn hàng).
+2. Hoàn thành API-First & Contract Test: Soạn thảo file đặc tả OpenAPI 3.0, khởi chạy Mock Server kết nối UI prototype và viết test kịch bản API trước khi code Backend.
+3. Hoàn thành Backend & Frontend: Sinh mã server stub tự động, triển khai logic nghiệp vụ với @Transactional, database seeding dữ liệu mẫu và xây dựng giao diện FE kết nối tương tác hoàn chỉnh.
+4. Kiểm thử Toàn diện: Thực thi Unit Test, Integration Test và E2E Flow Test.
+
+1. PHÂN TÍCH NGHIỆP VỤ & PHẦN CHỨC NĂNG BA (BUSINESS ANALYST)
+- Module Khách hàng (Customers): Đăng ký, đăng nhập tài khoản, quản lý thông tin cá nhân và xem lịch sử đơn hàng. Bắt buộc kiểm tra tính hợp lệ của Email và Số điện thoại.
+- Module Danh mục & Sản phẩm (Categories & Products): Quản lý danh mục hàng hóa. Sản phẩm bao gồm giá bán, hình ảnh, mô tả và số lượng tồn kho (Stock Quantity). Hỗ trợ tìm kiếm, lọc theo giá và phân trang.
+- Module Giỏ hàng & Đặt hàng (Cart & Orders): Cho phép thêm/sửa/xóa sản phẩm trong giỏ hàng. Khi bấm Đặt hàng (Checkout): kiểm tra tồn kho -> tính tổng tiền -> tạo đơn hàng ở trạng thái PENDING -> trừ số lượng tồn kho trong CSDL.
+- Quy tắc Quản lý Trạng thái Đơn hàng: Đơn hàng chuyển đổi qua các trạng thái: PENDING (Chờ xử lý) -> PAID (Đã thanh toán) -> SHIPPED (Đã giao) hoặc CANCELLED (Đã hủy). Nếu hủy đơn, số lượng tồn kho phải được hoàn lại.
+
+2. CHUẨN NGUYÊN TẮC RESTFUL API & QUY TRÌNH API-FIRST
+- Đặt tên Endpoint chuẩn mực: Dùng danh từ số nhiều (plural nouns) như /api/v1/customers, /api/v1/products, /api/v1/orders. Tuyệt đối không chứa động từ trên URL đường dẫn.
+- HTTP Verbs & Status Codes: Dùng đúng GET (lấy dữ liệu), POST (tạo mới - trả về 201 Created), PUT/PATCH (cập nhật), DELETE (xóa - trả về 204 No Content). Chuẩn hóa mã lỗi 400 Bad Request, 404 Not Found, 422 Unprocessable Entity, 500 Internal Error.
+- Cấu trúc Phản hồi Lỗi JSON thống nhất: Trả về Object dạng {"code": "ERR_STOCK_EMPTY", "message": "Sản phẩm đã hết hàng", "details": [...]}.
+- Quy trình API-First & Mock Server:
+  + Bước 2.1: Soạn thảo file đặc tả OpenAPI 3.0 (shop-api.yaml) làm Single Source of Truth.
+  + Bước 2.2: Khởi chạy Mock Server (Swagger Editor / Postman Mock) để nhóm Frontend ghép nối giao diện UI/UX thử nghiệm luồng người dùng mà chưa cần code Backend.
+  + Bước 2.3: Viết kịch bản kiểm thử hợp đồng API (Postman Collection Test Runner / BDD Gherkin) để kiểm tra tính hợp lệ của các Endpoint.
+
+3. XÂY DỰNG BACKEND (SPRING BOOT, JPA & MYSQL)
+- Codegen tự động: Sử dụng openapi-generator-maven-plugin sinh tự động các Java Server Interfaces và DTOs/Records bất biến vào thư mục target/generated-sources.
+- Quản lý Giao dịch @Transactional:
+  + Tất cả các hàm đọc/truy vấn dữ liệu phải đánh dấu @Transactional(readOnly = true) để Hibernate tắt cơ chế Dirty Checking, giảm thiểu CPU và RAM.
+  + Phương thức tạo Đơn hàng (Checkout) phải được bọc trong @Transactional để bảo đảm tính toàn vẹn dữ liệu (ACID) khi đồng thời tạo Đơn hàng và trừ Tồn kho sản phẩm.
+- Database Seeding: Viết lớp CommandLineRunner kết hợp thư viện Faker để tự động nạp dữ liệu giả lập (danh mục, sản phẩm mẫu, khách hàng) khi ứng dụng khởi chạy.
+
+4. XÂY DỰNG FRONTEND (UI/UX APPLICATION - TAILWIND CSS)
+- Giao diện Bán hàng (Storefront UI): Trang danh sách sản phẩm (có phân trang & lọc danh mục), trang chi tiết sản phẩm, giỏ hàng động và trang hoàn tất đơn hàng.
+- Giao diện Quản trị (Admin Dashboard): Trang xem danh sách đơn hàng, thay đổi trạng thái đơn hàng (PENDING -> PAID -> SHIPPED) và quản lý tồn kho sản phẩm.
+- Tích hợp 2 Giai đoạn: Giai đoạn 1 kết nối tới Mock Server từ file OpenAPI. Giai đoạn 2 chuyển đổi API Base URL sang kết nối Backend Spring Boot thực tế.
+
+5. QUY TRÌNH KIỂM THỬ HỆ THỐNG (TESTING)
+- API Contract Test: Chạy tự động bộ test trên Postman/Newman kiểm tra toàn bộ các Endpoint theo đặc tả OpenAPI.
+- Backend Unit & Integration Test: Viết kiểm thử cho Service layer và Controller bằng @SpringBootTest, MockMvc (kiểm tra trường hợp đặt hàng thành công và trường hợp thất bại do hết tồn kho).
+- End-to-End (E2E) Test: Thử nghiệm liên thông từ FE chọn sản phẩm -> Đặt hàng -> Backend xử lý ghi CSDL -> FE hiển thị mã đơn hàng thành công.
